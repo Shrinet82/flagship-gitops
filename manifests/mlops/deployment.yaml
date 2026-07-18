@@ -4,7 +4,7 @@ metadata:
   name: fraud-detection-api
   namespace: oppe2-app
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: fraud-detection-api
@@ -19,8 +19,8 @@ spec:
       serviceAccountName: telemetry-access
       containers:
       - name: fraud-api-container
-        image: fraud-app:local
-        imagePullPolicy: Never
+        image: fraud-app:fatal-error
+        imagePullPolicy: Always
         env:
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
           value: "http://signoz-ingester.signoz.svc.cluster.local:4317"
