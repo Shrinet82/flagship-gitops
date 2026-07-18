@@ -10,7 +10,7 @@ data:
     insecure=True))\nprovider.add_span_processor(processor)\ntrace.set_tracer_provider(provider)\ntracer
     = trace.get_tracer(\"sre-copilot-agent\")\n\n# 2. Azure AI Configuration\nAZURE_ENDPOINT
     = \"https://shashwatpratap94550-3810-resourc.services.ai.azure.com\"\nAZURE_KEY
-    = os.getenv(\"AZURE_OPENAI_API_KEY\", \"REDACTED\")\nMODEL_NAME = \"gpt-5-mini\"\n\ndef
+    = os.getenv(\"AZURE_OPENAI_API_KEY\", \"REDACTED\")\nMODEL_NAME = \"gpt-4o-mini\"\n\ndef
     initialize_azure_client():\n    return AzureOpenAI(\n        api_key=AZURE_KEY,\n
     \       api_version=\"2024-02-15-preview\",\n        azure_endpoint=AZURE_ENDPOINT,\n
     \   )\n\ndef scale_deployment(namespace: str, deployment_name: str, replicas:
