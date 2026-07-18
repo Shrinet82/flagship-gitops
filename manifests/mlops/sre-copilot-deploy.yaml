@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sre-copilot
+  labels:
+    app: sre-copilot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sre-copilot
+  template:
+    metadata:
+      labels:
+        app: sre-copilot
+    spec:
+      nodeSelector:
+        role: mlops
+      containers:
+        - name: copilot
+          image: python:3.11-slim
+          command:
+            - /bin/bash
+            - -c
+            - "pip install -r /app/requirements.txt && python /app/agent.py"
+          volumeMounts:
+            - name: code
+              mountPath: /app
+          env:
+            - name: AZURE_OPENAI_API_KEY
+              value: "dummy-key-for-now"
+            - name: AZURE_OPENAI_ENDPOINT
+              value: "https://dummy.openai.azure.com/"
+      volumes:
+        - name: code
+          configMap:
+            name: sre-copilot-code
