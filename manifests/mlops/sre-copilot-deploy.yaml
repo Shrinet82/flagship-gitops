@@ -14,6 +14,7 @@ spec:
       labels:
         app: sre-copilot
     spec:
+      serviceAccountName: telemetry-access
       nodeSelector:
         role: mlops
       containers:
@@ -22,7 +23,7 @@ spec:
           command:
             - /bin/bash
             - -c
-            - "pip install -r /app/requirements.txt && python /app/agent.py"
+            - "apt-get update && apt-get install -y curl && curl -LO https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/ && pip install -r /app/requirements.txt && python /app/agent.py"
           volumeMounts:
             - name: code
               mountPath: /app
