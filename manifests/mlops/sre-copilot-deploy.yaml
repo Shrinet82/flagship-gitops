@@ -29,6 +29,8 @@ spec:
           env:
             - name: AZURE_OPENAI_API_KEY
               value: "dummy-key-for-now"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://signoz-ingester.signoz.svc.cluster.local:4317"
             - name: AZURE_OPENAI_ENDPOINT
               value: "https://dummy.openai.azure.com/"
       volumes:
