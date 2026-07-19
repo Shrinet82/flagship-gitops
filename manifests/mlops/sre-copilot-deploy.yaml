@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sre-copilot
+  namespace: oppe2-app
   labels:
     app: sre-copilot
 spec:
