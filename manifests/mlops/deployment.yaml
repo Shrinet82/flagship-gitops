@@ -19,8 +19,8 @@ spec:
       serviceAccountName: telemetry-access
       containers:
       - name: fraud-api-container
-        image: fraud-app:fatal-error
-        imagePullPolicy: Always
+        image: fraud-app:local
+        imagePullPolicy: Never
         env:
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
           value: "http://signoz-ingester.signoz.svc.cluster.local:4317"
@@ -41,8 +41,8 @@ spec:
         resources:
           requests:
             cpu: "100m"
-            memory: "128Mi"
+            memory: "20Mi"
           limits:
             cpu: "500m"
-            memory: "512Mi"
+            memory: "30Mi"
 

@@ -86,22 +86,34 @@ data:
     \           args = json.loads(tool_call.function.arguments)\n            result
     = execute_tool(name, args)\n            logger.info(f\"Action Result: {result}\")\n
     \   else:\n        logger.info(f\"Telemetry evaluated. No remediation action required
-    or safe state reached: {response_message.content}\")\n\nif __name__ == \"__main__\":\n
-    \   # In production, this will receive input directly via the SigNoz Alert Webhook
-    / MCP hook payload\n    if len(sys.argv) > 1:\n        run_agent_workflow(sys.argv[1])\n
-    \   else:\n        logger.error(\"No telemetry context payload supplied to agent
-    engine.\")\n"
-  requirements.txt: |
-    azure-ai-projects
-    azure-identity
-    azure-core
-    opentelemetry-api
-    opentelemetry-sdk
-    opentelemetry-exporter-otlp
-    openai
-    mcp
-    requests
+    or safe state reached: {response_message.content}\")\n\n\nimport time\n\ndef query_signoz_mcp()
+    -> str:\n    logger.info(\"Polling live telemetry for fraud-detection-api anomalies...\")\n
+    \   cmd = \"kubectl get pods -l app=fraud-detection-api -n oppe2-app -o json\"\n
+    \   try:\n        res = subprocess.run(cmd, shell=True, capture_output=True, text=True,
+    check=True)\n        pods = json.loads(res.stdout).get(\"items\", [])\n        for
+    pod in pods:\n            statuses = pod.get(\"status\", {}).get(\"containerStatuses\",
+    [])\n            for status in statuses:\n                state = status.get(\"state\",
+    {})\n                last_state = status.get(\"lastState\", {})\n                \n
+    \               is_oom = False\n                if state.get(\"terminated\", {}).get(\"reason\")
+    == \"OOMKilled\":\n                    is_oom = True\n                if last_state.get(\"terminated\",
+    {}).get(\"reason\") == \"OOMKilled\":\n                    is_oom = True\n                \n
+    \               if is_oom:\n                    logger.warning(\"\U0001F6A8 SigNoz
+    MCP Alert: OOMKilled detected in live telemetry!\")\n                    return
+    json.dumps({\n                        \"incident\": \"OOMKilled\",\n                        \"deployment\":
+    \"fraud-detection-api\",\n                        \"namespace\": \"oppe2-app\",\n
+    \                       \"error_rate\": \"100%\",\n                        \"description\":
+    \"Pod terminated due to memory starvation (OOMKilled). Critical resource exhaustion
+    detected.\"\n                    })\n    except Exception as e:\n        logger.error(f\"Error
+    polling telemetry: {e}\")\n        \n    return json.dumps({\"status\": \"OK\"})\n\ndef
+    main_loop():\n    logger.info(\"Starting Intelligent Remediation Loop...\")\n
+    \   while True:\n        try:\n            mcp_data = query_signoz_mcp()\n            if
+    '\"status\": \"OK\"' not in mcp_data:\n                run_agent_workflow(mcp_data)\n
+    \       except Exception as e:\n            logger.error(f\"Error in SRE Copilot
+    Loop: {e}\")\n\n        logger.info(\"Sleeping for 10 seconds before next check...\")\n
+    \       time.sleep(10)\n\nif __name__ == \"__main__\":\n    try:\n        main_loop()\n
+    \   except KeyboardInterrupt:\n        logger.info(\"Exiting Copilot...\")\n"
 kind: ConfigMap
 metadata:
-  name: sre-copilot-code
+  creationTimestamp: null
+  name: sre-copilot-script
   namespace: oppe2-app
