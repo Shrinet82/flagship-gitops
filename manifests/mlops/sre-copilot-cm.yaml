@@ -112,6 +112,16 @@ data:
     Loop: {e}\")\n\n        logger.info(\"Sleeping for 10 seconds before next check...\")\n
     \       time.sleep(10)\n\nif __name__ == \"__main__\":\n    try:\n        main_loop()\n
     \   except KeyboardInterrupt:\n        logger.info(\"Exiting Copilot...\")\n"
+  requirements.txt: |
+    azure-ai-projects
+    azure-identity
+    azure-core
+    opentelemetry-api
+    opentelemetry-sdk
+    opentelemetry-exporter-otlp
+    openai
+    mcp
+    requests
 kind: ConfigMap
 metadata:
   creationTimestamp: null
