@@ -24,7 +24,7 @@ spec:
           command:
             - /bin/bash
             - -c
-            - "apt-get update && apt-get install -y curl && curl -LO https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/ && pip install -r /app/requirements.txt && python /app/agent.py"
+            - "apt-get update && apt-get install -y curl git && curl -LO https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/ && pip install -r /app/requirements.txt && python /app/agent.py"
           volumeMounts:
             - name: code
               mountPath: /app
@@ -34,6 +34,13 @@ spec:
                 secretKeyRef:
                   name: azure-ai-secret
                   key: api-key
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: git-credentials
+                  key: github-token
+            - name: GITHUB_REPO_URL
+              value: "github.com/Shrinet82/flagship-gitops.git"
             - name: SYSTEM_PROMPT
               value: |
                 You are an advanced, deterministic Autonomous SRE Agent tasked with governing an enterprise MLOps cluster. You analyze incoming telemetry from the SigNoz MCP hook.
