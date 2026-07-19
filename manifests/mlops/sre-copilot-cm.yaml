@@ -103,5 +103,5 @@ data:
     requests
 kind: ConfigMap
 metadata:
-  creationTimestamp: null
   name: sre-copilot-code
+  namespace: oppe2-app
