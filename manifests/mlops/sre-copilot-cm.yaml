@@ -39,76 +39,105 @@ data:
     \           \"parameters\": {\n                \"type\": \"object\",\n                \"properties\":
     {\n                    \"node_name\": {\"type\": \"string\"}\n                },\n
     \               \"required\": [\"node_name\"]\n            }\n        }\n    }\n]\n\n#
-    Core Execution Logic\ndef execute_tool(name, args):\n    logger.info(f\"Invoking
-    target tool: {name} with arguments: {args}\")\n    try:\n        if name in [\"scale_deployment\",
-    \"patch_pod_limits\", \"rollback_deployment\"]:\n            github_token = os.getenv(\"GITHUB_TOKEN\")\n
-    \           repo_url = os.getenv(\"GITHUB_REPO_URL\")\n            if not github_token
-    or not repo_url:\n                raise Exception(\"Missing GITHUB_TOKEN or GITHUB_REPO_URL
-    environment variables\")\n                \n            subprocess.run(\"rm -rf
-    /tmp/repo\", shell=True)\n            clone_cmd = f\"git clone https://oauth2:{github_token}@{repo_url}
-    /tmp/repo\"\n            res = subprocess.run(clone_cmd, shell=True, capture_output=True,
-    text=True)\n            if res.returncode != 0:\n                raise Exception(f\"Git
-    clone failed: {res.stderr}\")\n                \n            subprocess.run('git
-    config --global user.email \"sre-copilot@example.com\"', shell=True, cwd=\"/tmp/repo\")\n
-    \           subprocess.run('git config --global user.name \"SRE Copilot\"', shell=True,
-    cwd=\"/tmp/repo\")\n            \n            target_file = \"/tmp/repo/manifests/mlops/deployment.yaml\"\n
-    \           commit_msg = \"\"\n            \n            if name == \"scale_deployment\":\n
-    \               import re\n                with open(target_file, 'r') as f:\n
-    \                   yaml_content = f.read()\n                yaml_content = re.sub(r\"replicas:\\s*\\d+\",
-    f\"replicas: {args['replicas']}\", yaml_content)\n                with open(target_file,
-    'w') as f:\n                    f.write(yaml_content)\n                commit_msg
-    = f\"[Auto-Remediation] Traffic Spike\"\n                \n            elif name
-    == \"patch_pod_limits\":\n                import re\n                with open(target_file,
-    'r') as f:\n                    yaml_content = f.read()\n                yaml_content
+    Core Execution Logic\ndef execute_tool(name, args, reasoning=\"\", incident_type=\"Unknown
+    Incident\"):\n    logger.info(f\"Invoking target tool: {name} with arguments:
+    {args}\")\n    try:\n        github_token = os.getenv(\"GITHUB_TOKEN\")\n        repo_url
+    = os.getenv(\"GITHUB_REPO_URL\")\n        if not github_token or not repo_url:\n
+    \           raise Exception(\"Missing GITHUB_TOKEN or GITHUB_REPO_URL environment
+    variables\")\n            \n        subprocess.run(\"rm -rf /tmp/repo\", shell=True)\n
+    \       clone_cmd = f\"git clone https://oauth2:{github_token}@{repo_url} /tmp/repo\"\n
+    \       res = subprocess.run(clone_cmd, shell=True, capture_output=True, text=True)\n
+    \       if res.returncode != 0:\n            raise Exception(f\"Git clone failed:
+    {res.stderr}\")\n            \n        subprocess.run('git config --global user.email
+    \"sre-copilot@example.com\"', shell=True, cwd=\"/tmp/repo\")\n        subprocess.run('git
+    config --global user.name \"SRE Copilot\"', shell=True, cwd=\"/tmp/repo\")\n        \n
+    \       target_file = \"/tmp/repo/manifests/mlops/deployment.yaml\"\n        commit_msg
+    = \"\"\n        is_tier_1 = name in [\"scale_deployment\", \"patch_pod_limits\"]\n
+    \       is_tier_2 = name in [\"rollback_deployment\", \"trigger_retraining\",
+    \"cordon_and_drain\"]\n        \n        if is_tier_2:\n            import time\n
+    \           branch_name = f\"sre-copilot-remediation-{int(time.time())}\"\n            subprocess.run(f\"git
+    checkout -b {branch_name}\", shell=True, cwd=\"/tmp/repo\", check=True)\n            \n
+    \       if name == \"scale_deployment\":\n            import re\n            with
+    open(target_file, 'r') as f:\n                yaml_content = f.read()\n            yaml_content
+    = re.sub(r\"replicas:\\s*\\d+\", f\"replicas: {args['replicas']}\", yaml_content)\n
+    \           with open(target_file, 'w') as f:\n                f.write(yaml_content)\n
+    \           commit_msg = f\"[Auto-Remediation] Traffic Spike\"\n            \n
+    \       elif name == \"patch_pod_limits\":\n            import re\n            with
+    open(target_file, 'r') as f:\n                yaml_content = f.read()\n            yaml_content
     = re.sub(r\"cpu:\\s*\\\"?[0-9]+m?\\\"?\", f\"cpu: \\\"{args['cpu']}\\\"\", yaml_content)\n
-    \               yaml_content = re.sub(r\"memory:\\s*\\\"?[0-9]+[A-Za-z]+\\\"?\",
-    f\"memory: {args['memory']}\", yaml_content)\n                with open(target_file,
-    'w') as f:\n                    f.write(yaml_content)\n                commit_msg
-    = f\"[Auto-Remediation] Resource Starvation\"\n                \n            elif
-    name == \"rollback_deployment\":\n                subprocess.run('git revert --no-commit
-    HEAD', shell=True, cwd=\"/tmp/repo\", check=True)\n                commit_msg
-    = f\"[Auto-Remediation] Bad Release\"\n            \n            subprocess.run('git
-    add .', shell=True, cwd=\"/tmp/repo\", check=True)\n            subprocess.run(f'git
-    commit -m \"{commit_msg}\"', shell=True, cwd=\"/tmp/repo\", check=True)\n            subprocess.run('git
-    push origin main', shell=True, cwd=\"/tmp/repo\", check=True)\n            \n
-    \           return f\"GitOps Success: {commit_msg}\"\n            \n        elif
-    name == \"trigger_retraining\":\n            res = requests.post(args['pipeline_webhook_url'],
-    json={\"trigger\": \"automated_drift_remediation\"}, timeout=10)\n            return
-    f\"Retraining Pipeline Trigger Status: {res.status_code}\"\n            \n        elif
-    name == \"cordon_and_drain\":\n            subprocess.run(f\"kubectl cordon {args['node_name']}\",
-    shell=True, check=True)\n            res = subprocess.run(f\"kubectl drain {args['node_name']}
-    --ignore-daemonsets --delete-emptydir-data --force\", shell=True, capture_output=True,
-    text=True, check=True)\n            return f\"Drain Success: {res.stdout}\"\n
-    \           \n    except subprocess.CalledProcessError as e:\n        logger.error(f\"Execution
-    failed for tool {name}: {e.stderr}\")\n        return f\"Execution error: {e.stderr}\"\n
-    \   except Exception as e:\n        logger.error(f\"Unexpected error in tool execution:
-    {str(e)}\")\n        return f\"Error: {str(e)}\"\n\ndef run_agent_workflow(telemetry_context:
-    str):\n    logger.info(\"Starting Intelligent Diagnostic & Remediation Loop...\")\n
-    \   \n    client = AzureOpenAI(\n        api_key=os.getenv(\"AZURE_OPENAI_API_KEY\"),\n
-    \       api_version=\"2024-05-01-preview\",\n        azure_endpoint=os.getenv(\"AZURE_OPENAI_ENDPOINT\")\n
-    \   )\n    \n    system_prompt = os.getenv(\"SYSTEM_PROMPT\", \"Default SRE behavior.\")\n
-    \   \n    response = client.chat.completions.create(\n        model=\"gpt-5-mini\",\n
-    \       messages=[\n            {\"role\": \"system\", \"content\": system_prompt},\n
-    \           {\"role\": \"user\", \"content\": f\"Analyze this live SigNoz incident
-    data: {telemetry_context}\"}\n        ],\n        tools=tools_schema,\n        tool_choice=\"auto\"\n
-    \   )\n    \n    response_message = response.choices[0].message\n    \n    # Check
-    for Explicit Phase 2 Interlock Stop (HALT)\n    if response_message.content and
-    \"HALT_INSUFFICIENT_TOOLS\" in response_message.content:\n        logger.warning(\"\U0001F6A8
-    [PHASE 2 GUARDRAIL BREACHED] - Agent lacks the necessary tools to safely cure
-    this incident.\")\n        logger.warning(f\"Reasoning breakdown from LLM: {response_message.content}\")\n
+    \           yaml_content = re.sub(r\"memory:\\s*\\\"?[0-9]+[A-Za-z]+\\\"?\", f\"memory:
+    {args['memory']}\", yaml_content)\n            with open(target_file, 'w') as
+    f:\n                f.write(yaml_content)\n            commit_msg = f\"[Auto-Remediation]
+    Resource Starvation\"\n            \n        elif name == \"rollback_deployment\":\n
+    \           subprocess.run('git revert --no-commit HEAD', shell=True, cwd=\"/tmp/repo\",
+    check=True)\n            commit_msg = f\"[Tier 2 Proposal] Rollback Bad Release\"\n
+    \           \n        elif name == \"trigger_retraining\":\n            os.makedirs(\"/tmp/repo/audit\",
+    exist_ok=True)\n            with open(\"/tmp/repo/audit/PROPOSAL.md\", \"w\")
+    as f:\n                f.write(f\"# ML Pipeline Retraining Proposal\\n\\nTarget
+    Webhook: {args['pipeline_webhook_url']}\\n\")\n            commit_msg = f\"[Tier
+    2 Proposal] Trigger Retraining Pipeline\"\n            \n        elif name ==
+    \"cordon_and_drain\":\n            os.makedirs(\"/tmp/repo/audit\", exist_ok=True)\n
+    \           with open(\"/tmp/repo/audit/PROPOSAL.md\", \"w\") as f:\n                f.write(f\"#
+    Cordon and Drain Proposal\\n\\nTarget Node: {args['node_name']}\\n\")\n            commit_msg
+    = f\"[Tier 2 Proposal] Cordon and Drain Node\"\n        \n        subprocess.run('git
+    add .', shell=True, cwd=\"/tmp/repo\", check=True)\n        subprocess.run(f'git
+    commit -m \"{commit_msg}\"', shell=True, cwd=\"/tmp/repo\", check=True)\n        \n
+    \       if is_tier_1:\n            subprocess.run('git push origin main', shell=True,
+    cwd=\"/tmp/repo\", check=True)\n            logger.info(\"[TIER 1] Auto-remediation
+    pushed to main.\")\n            return f\"GitOps Success: {commit_msg}\"\n            \n
+    \       elif is_tier_2:\n            subprocess.run(f'git push origin {branch_name}',
+    shell=True, cwd=\"/tmp/repo\", check=True)\n            \n            import urllib.parse\n
+    \           # Repo URL format: github.com/owner/repo.git\n            parsed =
+    urllib.parse.urlparse(\"https://\" + repo_url)\n            path_parts = parsed.path.strip('/').replace('.git',
+    '').split('/')\n            owner = path_parts[0]\n            repo = path_parts[1]\n
+    \           \n            api_url = f\"https://api.github.com/repos/{owner}/{repo}/pulls\"\n
+    \           headers = {\n                \"Authorization\": f\"token {github_token}\",\n
+    \               \"Accept\": \"application/vnd.github.v3+json\"\n            }\n
+    \           pr_data = {\n                \"title\": f\"[URGENT] AI Remediation
+    Proposal: {incident_type}\",\n                \"head\": branch_name,\n                \"base\":
+    \"main\",\n                \"body\": f\"### AI Remediation Proposal\\n\\n**Incident:**
+    {incident_type}\\n**Proposed Action:** {name}\\n**Arguments:** {json.dumps(args,
+    indent=2)}\\n\\n### LLM Reasoning\\n\\n{reasoning}\"\n            }\n            \n
+    \           pr_res = requests.post(api_url, headers=headers, json=pr_data)\n            if
+    pr_res.status_code == 201:\n                pr_url = pr_res.json().get(\"html_url\")\n
+    \               logger.info(f\"[TIER 2] Destructive action proposed. PR opened
+    for Human Review: {pr_url}\")\n                return f\"PR created successfully:
+    {pr_url}\"\n            else:\n                logger.error(f\"Failed to create
+    PR: {pr_res.text}\")\n                return f\"Branch pushed, but PR creation
+    failed: {pr_res.text}\"\n                \n    except subprocess.CalledProcessError
+    as e:\n        logger.error(f\"Execution failed for tool {name}: {e.stderr}\")\n
+    \       return f\"Execution error: {e.stderr}\"\n    except Exception as e:\n
+    \       logger.error(f\"Unexpected error in tool execution: {str(e)}\")\n        return
+    f\"Error: {str(e)}\"\n\ndef run_agent_workflow(telemetry_context: str):\n    logger.info(\"Starting
+    Intelligent Diagnostic & Remediation Loop...\")\n    \n    client = AzureOpenAI(\n
+    \       api_key=os.getenv(\"AZURE_OPENAI_API_KEY\"),\n        api_version=\"2024-05-01-preview\",\n
+    \       azure_endpoint=os.getenv(\"AZURE_OPENAI_ENDPOINT\")\n    )\n    \n    system_prompt
+    = os.getenv(\"SYSTEM_PROMPT\", \"Default SRE behavior.\")\n    \n    response
+    = client.chat.completions.create(\n        model=\"gpt-5-mini\",\n        messages=[\n
+    \           {\"role\": \"system\", \"content\": system_prompt},\n            {\"role\":
+    \"user\", \"content\": f\"Analyze this live SigNoz incident data: {telemetry_context}\"}\n
+    \       ],\n        tools=tools_schema,\n        tool_choice=\"auto\"\n    )\n
+    \   \n    response_message = response.choices[0].message\n    \n    # Check for
+    Explicit Phase 2 Interlock Stop (HALT)\n    if response_message.content and \"HALT_INSUFFICIENT_TOOLS\"
+    in response_message.content:\n        logger.warning(\"\U0001F6A8 [PHASE 2 GUARDRAIL
+    BREACHED] - Agent lacks the necessary tools to safely cure this incident.\")\n
+    \       logger.warning(f\"Reasoning breakdown from LLM: {response_message.content}\")\n
     \       # Placeholder for Slack/PagerDuty notification webhook hook here\n        print(f\"SLACK_ALERT:
     Operational failure detected. Requiring Manual Intervention. Details: {response_message.content}\")\n
     \       return\n        \n    if response_message.tool_calls:\n        for tool_call
     in response_message.tool_calls:\n            name = tool_call.function.name\n
-    \           args = json.loads(tool_call.function.arguments)\n            result
-    = execute_tool(name, args)\n            logger.info(f\"Action Result: {result}\")\n
-    \   else:\n        logger.info(f\"Telemetry evaluated. No remediation action required
-    or safe state reached: {response_message.content}\")\n\n\nimport time\n\ndef query_signoz_mcp()
-    -> str:\n    logger.info(\"Polling live telemetry for fraud-detection-api anomalies...\")\n
-    \   cmd = \"kubectl get pods -l app=fraud-detection-api -n oppe2-app -o json\"\n
-    \   try:\n        res = subprocess.run(cmd, shell=True, capture_output=True, text=True,
-    check=True)\n        pods = json.loads(res.stdout).get(\"items\", [])\n        for
-    pod in pods:\n            statuses = pod.get(\"status\", {}).get(\"containerStatuses\",
+    \           args = json.loads(tool_call.function.arguments)\n            reasoning
+    = response_message.content or \"No explicit reasoning provided by LLM.\"\n            try:\n
+    \               incident_type = json.loads(telemetry_context).get(\"incident\",
+    \"Unknown Incident\")\n            except:\n                incident_type = \"Unknown
+    Incident\"\n            result = execute_tool(name, args, reasoning, incident_type)\n
+    \           logger.info(f\"Action Result: {result}\")\n    else:\n        logger.info(f\"Telemetry
+    evaluated. No remediation action required or safe state reached: {response_message.content}\")\n\n\nimport
+    time\n\ndef query_signoz_mcp() -> str:\n    logger.info(\"Polling live telemetry
+    for fraud-detection-api anomalies...\")\n    cmd = \"kubectl get pods -l app=fraud-detection-api
+    -n oppe2-app -o json\"\n    try:\n        res = subprocess.run(cmd, shell=True,
+    capture_output=True, text=True, check=True)\n        pods = json.loads(res.stdout).get(\"items\",
+    [])\n        for pod in pods:\n            statuses = pod.get(\"status\", {}).get(\"containerStatuses\",
     [])\n            for status in statuses:\n                state = status.get(\"state\",
     {})\n                last_state = status.get(\"lastState\", {})\n                \n
     \               is_oom = False\n                if state.get(\"terminated\", {}).get(\"reason\")
