@@ -115,5 +115,5 @@ data:
 kind: ConfigMap
 metadata:
   creationTimestamp: null
-  name: sre-copilot-script
+  name: sre-copilot-code
   namespace: oppe2-app
