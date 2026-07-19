@@ -59,7 +59,7 @@ spec:
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://signoz-ingester.signoz.svc.cluster.local:4317"
             - name: AZURE_OPENAI_ENDPOINT
-              value: "https://dummy.openai.azure.com/"
+              value: "https://shashwatpratap94550-3810-resourc.services.ai.azure.com/"
       volumes:
         - name: code
           configMap:
