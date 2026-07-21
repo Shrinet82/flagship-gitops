@@ -19,8 +19,8 @@ spec:
       serviceAccountName: telemetry-access
       containers:
       - name: fraud-api-container
-        image: ghcr.io/shrinet82/fraud-app:latest
-        imagePullPolicy: Always
+        image: fraud-app:local
+        imagePullPolicy: Never
         command: ["/bin/sh", "-c"]
         args:
         - "pip install opentelemetry-instrumentation-fastapi==0.46b0 && uvicorn app:app --host 0.0.0.0 --port 8001"
