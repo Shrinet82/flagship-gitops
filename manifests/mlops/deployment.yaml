@@ -4,7 +4,7 @@ metadata:
   name: fraud-detection-api
   namespace: oppe2-app
 spec:
-  replicas: 5
+  replicas: 8
   selector:
     matchLabels:
       app: fraud-detection-api
