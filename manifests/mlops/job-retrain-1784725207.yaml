@@ -1,0 +1,14 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ml-retrain-1784725207
+  namespace: oppe2-app
+spec:
+  template:
+    spec:
+      containers:
+      - name: retrainer
+        image: fraud-app:local
+        command: ["python", "train.py"]
+      restartPolicy: Never
+  backoffLimit: 2
