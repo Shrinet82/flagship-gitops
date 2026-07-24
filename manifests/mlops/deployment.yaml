@@ -47,11 +47,11 @@ spec:
           periodSeconds: 20
         resources:
           requests:
-            cpu: "500m"
-            memory: 256Mi
+            cpu: "1000m"
+            memory: 2Gi
           limits:
-            cpu: "500m"
-            memory: 256Mi
+            cpu: "1000m"
+            memory: 2Gi
       volumes:
       - name: app-py-volume
         configMap:
